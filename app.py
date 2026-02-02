@@ -315,24 +315,36 @@ with tab1:
             # Aplicar filtro de TOP N si está activo
             if filtered_team_names:
                 def match_in_filter(row):
+                    # Determinar quién es el rival del equipo seleccionado
+                    rival = row['Visitante'] if row['Local'] == selected_team else row['Local']
+                    
                     if match_type == 'Local':
+                        # El equipo seleccionado juega de local, verificar que el visitante esté en el filtro
                         return row['Visitante'] in filtered_team_names
                     elif match_type == 'Visitante':
+                        # El equipo seleccionado juega de visitante, verificar que el local esté en el filtro
                         return row['Local'] in filtered_team_names
                     else:  # 'Todos'
-                        return row['Local'] in filtered_team_names or row['Visitante'] in filtered_team_names
+                        # Verificar que el rival esté en el filtro (excluyendo al equipo seleccionado)
+                        return rival in filtered_team_names and rival != selected_team
                 
                 team_matches = team_matches[team_matches.apply(match_in_filter, axis=1)]
             
             # Aplicar filtro de equipos rivales específicos si está activo
             if selected_rival_teams:
                 def match_in_rival_filter(row):
+                    # Determinar quién es el rival del equipo seleccionado
+                    rival = row['Visitante'] if row['Local'] == selected_team else row['Local']
+                    
                     if match_type == 'Local':
+                        # El equipo seleccionado juega de local, verificar que el visitante esté en el filtro
                         return row['Visitante'] in selected_rival_teams
                     elif match_type == 'Visitante':
+                        # El equipo seleccionado juega de visitante, verificar que el local esté en el filtro
                         return row['Local'] in selected_rival_teams
                     else:  # 'Todos'
-                        return row['Local'] in selected_rival_teams or row['Visitante'] in selected_rival_teams
+                        # Verificar que el rival esté en el filtro (excluyendo al equipo seleccionado)
+                        return rival in selected_rival_teams and rival != selected_team
                 
                 team_matches = team_matches[team_matches.apply(match_in_rival_filter, axis=1)]
             
