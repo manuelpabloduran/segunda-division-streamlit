@@ -294,37 +294,39 @@ def calculate_team_stats(matches: List[Dict[str, Any]], match_type: str = 'Todos
             if top_teams_list is None or home_team in top_teams_list:
                 # Si ya contamos este partido para el local y estamos en modo 'Todos', no contar para visitante
                 # (evita doble conteo cuando ambos equipos están en el filtro TOP N)
+                skip_away_count = False
                 if match_type == 'Todos' and home_counted and top_teams_list is not None:
                     # Verificar si el equipo visitante también está en la lista TOP N
                     if away_team in top_teams_list:
                         # Ambos equipos están en TOP N, ya se contó para local, saltar visitante
-                        continue
+                        skip_away_count = True
                 
-                # Aplicar filtros avanzados
-                should_count_away = True
-                if advanced_filters:
-                    goal_analysis = analyze_match_goals(match, away_team)
-                    if advanced_filters.get('scored_first') and not goal_analysis['scored_first']:
-                        should_count_away = False
-                    if advanced_filters.get('conceded_first') and not goal_analysis['conceded_first']:
-                        should_count_away = False
-                    if advanced_filters.get('comeback') and not goal_analysis['comeback']:
-                        should_count_away = False
-                
-                if should_count_away:
-                    team_stats[away_team]['PJ'] += 1
-                    team_stats[away_team]['GF'] += away_goals
-                    team_stats[away_team]['GC'] += home_goals
-                    away_counted = True
+                if not skip_away_count:
+                    # Aplicar filtros avanzados
+                    should_count_away = True
+                    if advanced_filters:
+                        goal_analysis = analyze_match_goals(match, away_team)
+                        if advanced_filters.get('scored_first') and not goal_analysis['scored_first']:
+                            should_count_away = False
+                        if advanced_filters.get('conceded_first') and not goal_analysis['conceded_first']:
+                            should_count_away = False
+                        if advanced_filters.get('comeback') and not goal_analysis['comeback']:
+                            should_count_away = False
                     
-                    if winner == 'away':
-                        team_stats[away_team]['G'] += 1
-                        team_stats[away_team]['Pts'] += 3
-                    elif winner == 'draw':
-                        team_stats[away_team]['E'] += 1
-                        team_stats[away_team]['Pts'] += 1
-                    else:
-                        team_stats[away_team]['P'] += 1
+                    if should_count_away:
+                        team_stats[away_team]['PJ'] += 1
+                        team_stats[away_team]['GF'] += away_goals
+                        team_stats[away_team]['GC'] += home_goals
+                        away_counted = True
+                        
+                        if winner == 'away':
+                            team_stats[away_team]['G'] += 1
+                            team_stats[away_team]['Pts'] += 3
+                        elif winner == 'draw':
+                            team_stats[away_team]['E'] += 1
+                            team_stats[away_team]['Pts'] += 1
+                        else:
+                            team_stats[away_team]['P'] += 1
     
     # Calcular diferencia de goles
     for team in team_stats.values():
