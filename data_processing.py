@@ -254,10 +254,6 @@ def calculate_team_stats(matches: List[Dict[str, Any]], match_type: str = 'Todos
                     'Pts': 0  # Puntos
                 }
         
-        # Variables para controlar que cada partido se cuente solo UNA vez cuando match_type es 'Todos'
-        home_counted = False
-        away_counted = False
-        
         # Actualizar estadísticas del equipo local (si aplica filtro)
         if match_type in ['Todos', 'Local']:
             # Si hay filtro TOP N, solo contar si el rival está en la lista
@@ -277,7 +273,6 @@ def calculate_team_stats(matches: List[Dict[str, Any]], match_type: str = 'Todos
                     team_stats[home_team]['PJ'] += 1
                     team_stats[home_team]['GF'] += home_goals
                     team_stats[home_team]['GC'] += away_goals
-                    home_counted = True
                     
                     if winner == 'home':
                         team_stats[home_team]['G'] += 1
@@ -292,14 +287,6 @@ def calculate_team_stats(matches: List[Dict[str, Any]], match_type: str = 'Todos
         if match_type in ['Todos', 'Visitante']:
             # Si hay filtro TOP N, solo contar si el rival está en la lista
             if top_teams_list is None or home_team in top_teams_list:
-                # Si ya contamos este partido para el local y estamos en modo 'Todos', no contar para visitante
-                # (evita doble conteo cuando ambos equipos están en el filtro TOP N)
-                if match_type == 'Todos' and home_counted and top_teams_list is not None:
-                    # Verificar si el equipo visitante también está en la lista TOP N
-                    if away_team in top_teams_list:
-                        # Ambos equipos están en TOP N, ya se contó para local, saltar visitante
-                        continue
-                
                 # Aplicar filtros avanzados
                 should_count_away = True
                 if advanced_filters:
@@ -315,7 +302,6 @@ def calculate_team_stats(matches: List[Dict[str, Any]], match_type: str = 'Todos
                     team_stats[away_team]['PJ'] += 1
                     team_stats[away_team]['GF'] += away_goals
                     team_stats[away_team]['GC'] += home_goals
-                    away_counted = True
                     
                     if winner == 'away':
                         team_stats[away_team]['G'] += 1
