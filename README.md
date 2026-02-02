@@ -36,7 +36,7 @@ Aplicación Streamlit para análisis detallado de estadísticas de la Segunda Di
 - **Estadísticas Generales**: Top 5 goleadores, mejores defensas, más victorias, mejor diferencia de goles
 - **Botón Borrar Filtros**: Resetea todos los filtros activos
 
-## 📦 Instalación
+## 📦 Instalación Local
 
 ```bash
 # Clonar repositorio
@@ -46,15 +46,74 @@ cd streamlit_partidos
 # Instalar dependencias
 pip install -r requirements.txt
 
-# Configurar variables de entorno
-# Crear archivo .env con tus credenciales de Stats Perform API
+# Copiar archivo de configuración ejemplo
+cp config.example.py config.py
+
+# Editar config.py con tus credenciales de Stats Perform API
+# O configurar variables de entorno:
+# SDAPI_OUTLET_KEY, SDAPI_SECRET_KEY, SDAPI_SECRET_KEY_BACKUP
 ```
 
-### Contenido del archivo `.env`:
-```
-STATS_PERFORM_USERNAME=tu_usuario
-STATS_PERFORM_PASSWORD=tu_password
-```
+## 🌐 Despliegue en Streamlit Cloud
+
+### Paso 1: Preparar el Repositorio
+
+1. **Crear repositorio público en GitHub**
+   ```bash
+   # Asegurarte de que config.py NO esté en el repo (está en .gitignore)
+   git add .
+   git commit -m "Preparar para despliegue en Streamlit Cloud"
+   git push origin main
+   ```
+
+2. **Verificar que estos archivos SÍ estén en el repo:**
+   - ✅ `config.example.py` (sin credenciales)
+   - ✅ `.streamlit/secrets.toml.example` (plantilla)
+   - ✅ `.gitignore` (con `config.py` listado)
+   - ✅ Todos los demás archivos `.py`
+
+3. **Verificar que estos archivos NO estén:**
+   - ❌ `config.py` (contiene credenciales)
+   - ❌ `.env` (si existe)
+   - ❌ Datos en `match_cache/` y `segunda_division_2025_2026_matches.json`
+
+### Paso 2: Configurar Streamlit Cloud
+
+1. **Ir a [share.streamlit.io](https://share.streamlit.io)**
+
+2. **Conectar tu repositorio de GitHub**
+   - Click "New app"
+   - Seleccionar tu repositorio
+   - Branch: `main` (o `master`)
+   - Main file path: `app.py`
+
+3. **Configurar Secrets** (⚠️ IMPORTANTE)
+   - Click en "Advanced settings" → "Secrets"
+   - Copiar el contenido de `.streamlit/secrets.toml.example`
+   - **Reemplazar con tus credenciales reales:**
+   ```toml
+   SDAPI_OUTLET_KEY = "tu_outlet_key_real"
+   SDAPI_SECRET_KEY = "tu_secret_key_real"
+   SDAPI_SECRET_KEY_BACKUP = "tu_secret_key_backup_real"
+   ```
+   - ⚠️ Estas credenciales permanecen privadas en Streamlit Cloud
+
+4. **Deploy!**
+   - Click "Deploy"
+   - Esperar a que la app se inicie (puede tardar 2-3 minutos)
+
+### Paso 3: Verificación
+
+- ✅ La app carga correctamente
+- ✅ Los datos se descargan desde la API
+- ✅ Las credenciales NO son visibles en el código público
+
+### 🔒 Seguridad
+
+- ✅ `config.py` está en `.gitignore` y nunca se sube a GitHub
+- ✅ Las credenciales solo existen en Streamlit Cloud Secrets
+- ✅ El código público usa `config.example.py` como referencia
+- ✅ La app lee secrets automáticamente desde `st.secrets`
 
 ## 🎮 Uso
 

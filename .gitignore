@@ -1,5 +1,6 @@
-# Environment variables
+# Environment variables and sensitive config
 .env
+config.py
 
 # Python cache
 __pycache__/
