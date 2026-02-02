@@ -353,7 +353,14 @@ def build_standings_table(data: Dict[str, Any], match_type: str = 'Todos', top_n
     
     matches_raw = data['matches']
     
-    # Extraer resultados de todos los partidos
+    # Extraer resultados de TODOS los partidos (sin filtros) para la referencia TOP N
+    all_matches_for_reference = []
+    for match in matches_raw:
+        result = extract_match_result(match)
+        if result is not None:
+            all_matches_for_reference.append(result)
+    
+    # Extraer resultados de partidos CON filtros aplicados
     matches_processed = []
     for match in matches_raw:
         result = extract_match_result(match)
@@ -387,10 +394,10 @@ def build_standings_table(data: Dict[str, Any], match_type: str = 'Todos', top_n
             
             matches_processed.append(result)
     
-    # Si necesitamos filtrar por TOP N, primero calcular tabla completa como referencia
+    # Si necesitamos filtrar por TOP N, calcular tabla completa como referencia (sin filtros de fecha)
     reference_standings = None
     if top_n_range:
-        reference_standings = calculate_team_stats(matches_processed, match_type='Todos')
+        reference_standings = calculate_team_stats(all_matches_for_reference, match_type='Todos')
     
     # Calcular estadísticas con filtros
     standings = calculate_team_stats(matches_processed, match_type=match_type, top_n_range=top_n_range, reference_standings=reference_standings, rival_teams=rival_teams, advanced_filters=advanced_filters)
