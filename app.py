@@ -641,7 +641,17 @@ with tab4:
             for match in data['matches']:
                 result = extract_match_result(match)
                 if result and (result['home_team'] == selected_team_analysis or result['away_team'] == selected_team_analysis):
-                    team_matches.append(pd.to_datetime(result['date']))
+                    try:
+                        # Intentar parsear la fecha, manejando diferentes formatos
+                        date_str = result['date']
+                        if date_str:
+                            # Limpiar la fecha si tiene Z o timezone
+                            date_str = str(date_str).replace('Z', '').split('T')[0]
+                            parsed_date = pd.to_datetime(date_str, format='%Y-%m-%d', errors='coerce')
+                            if pd.notna(parsed_date):
+                                team_matches.append(parsed_date)
+                    except:
+                        continue
             
             if team_matches:
                 min_date = min(team_matches).date()

@@ -853,8 +853,12 @@ def get_minutes_played_by_player(data: Dict[str, Any], team_name: str, include_p
         
         # Aplicar filtro de fechas si existe
         if date_range:
-            match_date = pd.to_datetime(result['date'])
-            if not (date_range[0] <= match_date <= date_range[1]):
+            try:
+                date_str = str(result['date']).replace('Z', '').split('T')[0]
+                match_date = pd.to_datetime(date_str, format='%Y-%m-%d', errors='coerce')
+                if pd.isna(match_date) or not (date_range[0] <= match_date <= date_range[1]):
+                    continue
+            except:
                 continue
         
         # Obtener jugadores titulares del equipo en este partido
@@ -946,8 +950,12 @@ def calculate_competitiveness_index(data: Dict[str, Any], team_name: str, includ
         
         # Aplicar filtro de fechas si existe
         if date_range:
-            match_date = pd.to_datetime(result['date'])
-            if not (date_range[0] <= match_date <= date_range[1]):
+            try:
+                date_str = str(result['date']).replace('Z', '').split('T')[0]
+                match_date = pd.to_datetime(date_str, format='%Y-%m-%d', errors='coerce')
+                if pd.isna(match_date) or not (date_range[0] <= match_date <= date_range[1]):
+                    continue
+            except:
                 continue
         
         # Filtros de jugadores titulares
