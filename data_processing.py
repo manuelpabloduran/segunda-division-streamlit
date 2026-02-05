@@ -816,3 +816,95 @@ def get_filtered_matches_by_players(data: Dict[str, Any], team_name: str, includ
         df['Fecha'] = df['Fecha'].dt.strftime('%d/%m/%Y')
     
     return df
+
+
+def get_minutes_played_by_player(data: Dict[str, Any], team_name: str, include_players: List[str] = None, exclude_players: List[str] = None, manager: str = None) -> Dict[str, int]:
+    """
+    Obtiene los minutos jugados totales por cada jugador en partidos filtrados.
+    
+    Args:
+        data: Datos completos del archivo JSON
+        team_name: Nombre del equipo
+        include_players: Lista de jugadores que DEBEN ser titulares (todos)
+        exclude_players: Lista de jugadores que NO deben ser titulares (ninguno)
+        manager: Nombre del entrenador a filtrar (opcional)
+        
+    Returns:
+        Diccionario con {nombre_jugador: minutos_totales}
+    """
+    if 'matches' not in data:
+        return {}
+    
+    player_minutes = {}
+    
+    for match in data['matches']:
+        # Extraer resultado del partido
+        result = extract_match_result(match)
+        if result is None:
+            continue
+        
+        # Verificar si el equipo participa en este partido
+        is_home = (result['home_team'] == team_name)
+        is_away = (result['away_team'] == team_name)
+        
+        if not is_home and not is_away:
+            continue
+        
+        # Obtener jugadores titulares del equipo en este partido
+        starters = get_team_starting_players(match, team_name)
+        
+        # Aplicar filtros de jugadores
+        if include_players:
+            # Todos los jugadores incluidos deben estar en los titulares
+            if not all(player in starters for player in include_players):
+                continue
+        
+        if exclude_players:
+            # Ninguno de los jugadores excluidos debe estar en los titulares
+            if any(player in starters for player in exclude_players):
+                continue
+        
+        # Aplicar filtro de entrenador
+        if manager:
+            match_manager = get_team_manager(match, team_name)
+            if match_manager != manager:
+                continue
+        
+        # Obtener el contestantId del equipo
+        contestant_id = None
+        for contestant in match.get('contestants', []):
+            if contestant.get('name') == team_name:
+                contestant_id = contestant.get('id')
+                break
+        
+        if not contestant_id:
+            continue
+        
+        # Extraer minutos jugados de cada jugador del equipo
+        lineup = match.get('liveData', {}).get('lineUp', [])
+        for player_data in lineup:
+            if player_data.get('contestantId') != contestant_id:
+                continue
+            
+            player_name = player_data.get('matchName', '')
+            if not player_name:
+                continue
+            
+            # Buscar estadística de minutos jugados
+            stats = player_data.get('stat', [])
+            minutes = 0
+            for stat in stats:
+                if stat.get('type') == 'minsPlayed':
+                    try:
+                        minutes = int(stat.get('value', 0))
+                    except (ValueError, TypeError):
+                        minutes = 0
+                    break
+            
+            # Sumar minutos al jugador
+            if player_name in player_minutes:
+                player_minutes[player_name] += minutes
+            else:
+                player_minutes[player_name] = minutes
+    
+    return player_minutes

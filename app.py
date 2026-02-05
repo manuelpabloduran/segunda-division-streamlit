@@ -5,6 +5,7 @@ Con actualización automática de datos desde API de Opta
 import streamlit as st
 import json
 import pandas as pd
+import plotly.express as px
 from pathlib import Path
 from update_utils import (
     get_last_update_info,
@@ -19,6 +20,7 @@ from data_processing import (
     get_all_managers_for_team,
     calculate_team_stats_with_players,
     get_filtered_matches_by_players,
+    get_minutes_played_by_player,
     match_has_red_cards
 )
 
@@ -705,6 +707,60 @@ with tab4:
                 
                 with col10:
                     st.metric("Derrotas", stats['losses'], delta=None)
+                
+                # Gráfico de minutos jugados por jugador
+                st.divider()
+                st.write("**⏱️ Minutos Jugados por Jugador**")
+                
+                player_minutes = get_minutes_played_by_player(
+                    data,
+                    selected_team_analysis,
+                    include_players if include_players else None,
+                    exclude_players if exclude_players else None,
+                    selected_manager
+                )
+                
+                if player_minutes:
+                    # Convertir a DataFrame y ordenar de mayor a menor
+                    minutes_df = pd.DataFrame([
+                        {'Jugador': player, 'Minutos': minutes}
+                        for player, minutes in player_minutes.items()
+                        if minutes > 0  # Solo mostrar jugadores con minutos
+                    ])
+                    
+                    if not minutes_df.empty:
+                        minutes_df = minutes_df.sort_values('Minutos', ascending=True)  # Ascendente para barras horizontales
+                        
+                        # Crear gráfico de barras horizontales
+                        fig = px.bar(
+                            minutes_df,
+                            x='Minutos',
+                            y='Jugador',
+                            orientation='h',
+                            text='Minutos',
+                            title=None
+                        )
+                        
+                        # Personalizar el gráfico
+                        fig.update_traces(
+                            texttemplate='%{text}',
+                            textposition='outside',
+                            marker_color='#1f77b4'
+                        )
+                        
+                        fig.update_layout(
+                            height=max(400, len(minutes_df) * 25),  # Altura dinámica según número de jugadores
+                            xaxis_title='Minutos Totales',
+                            yaxis_title=None,
+                            showlegend=False,
+                            margin=dict(l=10, r=10, t=10, b=40)
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.info("No hay datos de minutos jugados disponibles")
+                else:
+                    st.info("No hay datos de minutos jugados disponibles")
                 
                 # Tabla de partidos
                 st.divider()

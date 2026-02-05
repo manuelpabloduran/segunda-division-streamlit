@@ -7,13 +7,13 @@ import os
 # Intentar importar streamlit para usar secrets si está disponible
 try:
     import streamlit as st
-    # Si estamos en Streamlit Cloud, usar secrets
-    if hasattr(st, 'secrets') and len(st.secrets) > 0:
+    # Intentar usar secrets de Streamlit Cloud
+    try:
         OUTLET_KEY = st.secrets.get("SDAPI_OUTLET_KEY")
         SECRET_KEY = st.secrets.get("SDAPI_SECRET_KEY")
         SECRET_KEY_BACKUP = st.secrets.get("SDAPI_SECRET_KEY_BACKUP", "")
-    else:
-        # Streamlit importado pero sin secrets, usar env vars
+    except (FileNotFoundError, Exception):
+        # Secrets no disponibles, usar env vars
         OUTLET_KEY = os.getenv("SDAPI_OUTLET_KEY")
         SECRET_KEY = os.getenv("SDAPI_SECRET_KEY")
         SECRET_KEY_BACKUP = os.getenv("SDAPI_SECRET_KEY_BACKUP", "")
