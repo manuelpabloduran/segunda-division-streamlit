@@ -872,7 +872,8 @@ def get_minutes_played_by_player(data: Dict[str, Any], team_name: str, include_p
         
         # Obtener el contestantId del equipo
         contestant_id = None
-        for contestant in match.get('contestants', []):
+        match_info = match.get('matchInfo', {})
+        for contestant in match_info.get('contestant', []):
             if contestant.get('name') == team_name:
                 contestant_id = contestant.get('id')
                 break
@@ -882,29 +883,32 @@ def get_minutes_played_by_player(data: Dict[str, Any], team_name: str, include_p
         
         # Extraer minutos jugados de cada jugador del equipo
         lineup = match.get('liveData', {}).get('lineUp', [])
-        for player_data in lineup:
-            if player_data.get('contestantId') != contestant_id:
+        for team_lineup in lineup:
+            if team_lineup.get('contestantId') != contestant_id:
                 continue
             
-            player_name = player_data.get('matchName', '')
-            if not player_name:
-                continue
-            
-            # Buscar estadística de minutos jugados
-            stats = player_data.get('stat', [])
-            minutes = 0
-            for stat in stats:
-                if stat.get('type') == 'minsPlayed':
-                    try:
-                        minutes = int(stat.get('value', 0))
-                    except (ValueError, TypeError):
-                        minutes = 0
-                    break
-            
-            # Sumar minutos al jugador
-            if player_name in player_minutes:
-                player_minutes[player_name] += minutes
-            else:
-                player_minutes[player_name] = minutes
+            # Iterar sobre los jugadores de este equipo
+            players = team_lineup.get('player', [])
+            for player_data in players:
+                player_name = player_data.get('matchName', '')
+                if not player_name:
+                    continue
+                
+                # Buscar estadística de minutos jugados
+                stats = player_data.get('stat', [])
+                minutes = 0
+                for stat in stats:
+                    if stat.get('type') == 'minsPlayed':
+                        try:
+                            minutes = int(stat.get('value', 0))
+                        except (ValueError, TypeError):
+                            minutes = 0
+                        break
+                
+                # Sumar minutos al jugador
+                if player_name in player_minutes:
+                    player_minutes[player_name] += minutes
+                else:
+                    player_minutes[player_name] = minutes
     
     return player_minutes
