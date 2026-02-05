@@ -21,6 +21,8 @@ from data_processing import (
     calculate_team_stats_with_players,
     get_filtered_matches_by_players,
     get_minutes_played_by_player,
+    calculate_competitiveness_index,
+    extract_match_result,
     match_has_red_cards
 )
 
@@ -631,6 +633,43 @@ with tab4:
             elif len(all_managers) == 1:
                 st.info(f"ℹ️ Entrenador: {all_managers[0]}")
             
+            # Filtro de rango de fechas
+            st.write("**Filtrar por rango de fechas:**")
+            
+            # Obtener fechas de partidos del equipo
+            team_matches = []
+            for match in data['matches']:
+                result = extract_match_result(match)
+                if result and (result['home_team'] == selected_team_analysis or result['away_team'] == selected_team_analysis):
+                    team_matches.append(pd.to_datetime(result['date']))
+            
+            if team_matches:
+                min_date = min(team_matches).date()
+                max_date = max(team_matches).date()
+                
+                col_date1, col_date2 = st.columns(2)
+                with col_date1:
+                    start_date = st.date_input(
+                        "Desde:",
+                        value=min_date,
+                        min_value=min_date,
+                        max_value=max_date,
+                        key="start_date_analysis"
+                    )
+                with col_date2:
+                    end_date = st.date_input(
+                        "Hasta:",
+                        value=max_date,
+                        min_value=min_date,
+                        max_value=max_date,
+                        key="end_date_analysis"
+                    )
+                
+                # Convertir a datetime para comparación
+                date_range = (pd.to_datetime(start_date), pd.to_datetime(end_date))
+            else:
+                date_range = None
+            
             # Validar que no haya jugadores en ambas listas
             if include_players and exclude_players:
                 overlap = set(include_players) & set(exclude_players)
@@ -717,7 +756,8 @@ with tab4:
                     selected_team_analysis,
                     include_players if include_players else None,
                     exclude_players if exclude_players else None,
-                    selected_manager
+                    selected_manager,
+                    date_range if date_range else None
                 )
                 
                 if player_minutes:
@@ -761,6 +801,77 @@ with tab4:
                         st.info("No hay datos de minutos jugados disponibles")
                 else:
                     st.info("No hay datos de minutos jugados disponibles")
+                
+                # Gráfico de índice de competitividad
+                st.divider()
+                st.write("**📊 Índice de Competitividad vs Diferencia de Gol**")
+                
+                competitiveness_df = calculate_competitiveness_index(
+                    data,
+                    selected_team_analysis,
+                    include_players if include_players else None,
+                    exclude_players if exclude_players else None,
+                    selected_manager,
+                    date_range if date_range else None
+                )
+                
+                if not competitiveness_df.empty and len(competitiveness_df) > 0:
+                    # Filtrar jugadores con pocos minutos (menos del 5% del total)
+                    competitiveness_df = competitiveness_df[competitiveness_df['pct_minutes_played'] >= 0.05].copy()
+                    
+                    if not competitiveness_df.empty:
+                        # Crear gráfico scatter
+                        fig_comp = px.scatter(
+                            competitiveness_df,
+                            x='avg_indice_competitividad',
+                            y='sum_played_gd',
+                            size='pct_minutes_played',
+                            text='player_name',
+                            title=None,
+                            labels={
+                                'avg_indice_competitividad': 'Índice de Competitividad Promedio',
+                                'sum_played_gd': 'Diferencia de Gol - Jugador en Campo',
+                                'pct_minutes_played': '% Minutos'
+                            }
+                        )
+                        
+                        # Líneas de referencia en promedios
+                        x_mean = competitiveness_df['avg_indice_competitividad'].mean()
+                        y_mean = competitiveness_df['sum_played_gd'].mean()
+                        
+                        fig_comp.add_hline(y=y_mean, line_dash="dash", line_color="gray", opacity=0.5)
+                        fig_comp.add_vline(x=x_mean, line_dash="dash", line_color="gray", opacity=0.5)
+                        
+                        # Personalizar apariencia
+                        fig_comp.update_traces(
+                            textposition='top center',
+                            marker=dict(
+                                sizemode='diameter',
+                                sizeref=0.02,
+                                line=dict(width=1, color='white')
+                            )
+                        )
+                        
+                        fig_comp.update_layout(
+                            height=600,
+                            showlegend=False,
+                            xaxis_title='Índice de Competitividad Promedio',
+                            yaxis_title='Diferencia de Gol con Jugador en Campo',
+                            margin=dict(l=10, r=10, t=30, b=10)
+                        )
+                        
+                        st.plotly_chart(fig_comp, use_container_width=True)
+                        
+                        # Mostrar tabla de datos
+                        with st.expander("📋 Ver datos detallados"):
+                            display_df = competitiveness_df[['player_name', 'avg_indice_competitividad', 'sum_played_gd', 'sum_diff_points', 'total_minutes_played', 'pct_minutes_played', 'n_games']].copy()
+                            display_df.columns = ['Jugador', 'Índice Promedio', 'DG en Campo', 'Dif. Puntos', 'Minutos', '% Minutos', 'Partidos']
+                            display_df = display_df.sort_values('Índice Promedio', ascending=False)
+                            st.dataframe(display_df, use_container_width=True, hide_index=True)
+                    else:
+                        st.info("No hay suficientes datos (se requiere al menos 5% de minutos jugados)")
+                else:
+                    st.info("No hay datos de índice de competitividad disponibles")
                 
                 # Tabla de partidos
                 st.divider()

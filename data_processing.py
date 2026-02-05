@@ -818,7 +818,7 @@ def get_filtered_matches_by_players(data: Dict[str, Any], team_name: str, includ
     return df
 
 
-def get_minutes_played_by_player(data: Dict[str, Any], team_name: str, include_players: List[str] = None, exclude_players: List[str] = None, manager: str = None) -> Dict[str, int]:
+def get_minutes_played_by_player(data: Dict[str, Any], team_name: str, include_players: List[str] = None, exclude_players: List[str] = None, manager: str = None, date_range: tuple = None) -> Dict[str, int]:
     """
     Obtiene los minutos jugados totales por cada jugador en partidos filtrados.
     
@@ -828,6 +828,7 @@ def get_minutes_played_by_player(data: Dict[str, Any], team_name: str, include_p
         include_players: Lista de jugadores que DEBEN ser titulares (todos)
         exclude_players: Lista de jugadores que NO deben ser titulares (ninguno)
         manager: Nombre del entrenador a filtrar (opcional)
+        date_range: Tupla (start_date, end_date) en formato datetime (opcional)
         
     Returns:
         Diccionario con {nombre_jugador: minutos_totales}
@@ -849,6 +850,12 @@ def get_minutes_played_by_player(data: Dict[str, Any], team_name: str, include_p
         
         if not is_home and not is_away:
             continue
+        
+        # Aplicar filtro de fechas si existe
+        if date_range:
+            match_date = pd.to_datetime(result['date'])
+            if not (date_range[0] <= match_date <= date_range[1]):
+                continue
         
         # Obtener jugadores titulares del equipo en este partido
         starters = get_team_starting_players(match, team_name)
@@ -912,3 +919,323 @@ def get_minutes_played_by_player(data: Dict[str, Any], team_name: str, include_p
                     player_minutes[player_name] = minutes
     
     return player_minutes
+
+
+def calculate_competitiveness_index(data: Dict[str, Any], team_name: str, include_players: List[str] = None, exclude_players: List[str] = None, manager: str = None, date_range: tuple = None) -> pd.DataFrame:
+    """
+    Calcula el índice de competitividad por jugador según la fórmula:
+    indice = (minutes_norm + played_points + diff_points + played_gd + total_points) / 3.33
+    
+    Returns DataFrame con métricas por jugador.
+    """
+    if 'matches' not in data:
+        return pd.DataFrame()
+    
+    player_match_records = []
+    
+    for match in data['matches']:
+        result = extract_match_result(match)
+        if result is None:
+            continue
+        
+        # Verificar equipo participa
+        is_home = (result['home_team'] == team_name)
+        is_away = (result['away_team'] == team_name)
+        if not is_home and not is_away:
+            continue
+        
+        # Aplicar filtro de fechas si existe
+        if date_range:
+            match_date = pd.to_datetime(result['date'])
+            if not (date_range[0] <= match_date <= date_range[1]):
+                continue
+        
+        # Filtros de jugadores titulares
+        starters = get_team_starting_players(match, team_name)
+        if include_players and not all(p in starters for p in include_players):
+            continue
+        if exclude_players and any(p in starters for p in exclude_players):
+            continue
+        
+        # Filtro de entrenador
+        if manager:
+            match_manager = get_team_manager(match, team_name)
+            if match_manager != manager:
+                continue
+        
+        # Calcular resultado final del partido
+        team_goals = result['home_goals'] if is_home else result['away_goals']
+        rival_goals = result['away_goals'] if is_home else result['home_goals']
+        
+        if team_goals > rival_goals:
+            total_result = 'win'
+            total_points = 3
+        elif team_goals < rival_goals:
+            total_result = 'loss'
+            total_points = 0
+        else:
+            total_result = 'draw'
+            total_points = 1
+        
+        total_gd = team_goals - rival_goals
+        
+        # Obtener tramos de jugadores y goles
+        player_segments = get_player_segments_in_match(match, team_name)
+        goals_timeline = get_goals_timeline(match, team_name)
+        match_end_time = get_match_end_time(match, goals_timeline)
+        
+        # Para cada jugador calcular sus métricas
+        for player_name, segment in player_segments.items():
+            min_start, min_end_or_none = segment
+            min_end = min_end_or_none if min_end_or_none is not None else match_end_time
+            
+            minutes_played = min_end - min_start
+            minutes_norm = min(minutes_played / 90, 1.0)
+            
+            # Goles en su tramo
+            gf_played, gc_played = calculate_goals_in_segment(goals_timeline, min_start, min_end, is_home)
+            played_gd = gf_played - gc_played
+            
+            # Resultado en su tramo
+            if gf_played > gc_played:
+                played_result = 'win'
+                played_points = 3
+            elif gf_played < gc_played:
+                played_result = 'loss'
+                played_points = 0
+            else:
+                played_result = 'draw'
+                played_points = 1
+            
+            # Goles sin el jugador (resto del partido)
+            gf_without, gc_without = calculate_goals_outside_segment(goals_timeline, min_start, min_end, match_end_time, is_home)
+            minutes_without = match_end_time - minutes_played
+            
+            # Resultado sin el jugador
+            if minutes_without == 0:
+                without_result = None
+                without_points = None
+                diff_points = 0.0
+            else:
+                if gf_without > gc_without:
+                    without_result = 'win'
+                    without_points = 3
+                elif gf_without < gc_without:
+                    without_result = 'loss'
+                    without_points = 0
+                else:
+                    without_result = 'draw'
+                    without_points = 1
+                
+                diff_points = played_points - without_points
+            
+            # Índice de competitividad
+            indice = (minutes_norm + played_points + diff_points + played_gd + total_points) / 3.33
+            
+            player_match_records.append({
+                'player_name': player_name,
+                'match_date': result['date'],
+                'rival': result['away_team'] if is_home else result['home_team'],
+                'minutes_played': minutes_played,
+                'minutes_norm': minutes_norm,
+                'played_points': played_points,
+                'without_points': without_points,
+                'diff_points': diff_points,
+                'played_gd': played_gd,
+                'total_points': total_points,
+                'indice_competitividad': indice,
+                'total_result': total_result
+            })
+    
+    if not player_match_records:
+        return pd.DataFrame()
+    
+    df = pd.DataFrame(player_match_records)
+    
+    # Agregar por jugador
+    df_player = df.groupby('player_name', as_index=False).agg(
+        total_minutes_played=('minutes_played', 'sum'),
+        avg_indice_competitividad=('indice_competitividad', 'mean'),
+        sum_played_gd=('played_gd', 'sum'),
+        sum_diff_points=('diff_points', 'sum'),
+        n_games=('match_date', 'count')
+    )
+    
+    # Calcular partidos totales del equipo (con filtros aplicados)
+    total_team_games = len(df['match_date'].unique())
+    df_player['pct_minutes_played'] = (df_player['total_minutes_played'] / (total_team_games * 90)).clip(upper=1.0)
+    
+    return df_player
+
+
+def get_player_segments_in_match(match: Dict[str, Any], team_name: str) -> Dict[str, tuple]:
+    """
+    Retorna dict {player_name: (min_start, min_end_or_None)}
+    None significa que jugó hasta el final del partido.
+    """
+    segments = {}
+    
+    match_info = match.get('matchInfo', {})
+    contestant_id = None
+    for c in match_info.get('contestant', []):
+        if c.get('name') == team_name:
+            contestant_id = c.get('id')
+            break
+    
+    if not contestant_id:
+        return segments
+    
+    live_data = match.get('liveData', {})
+    lineup = live_data.get('lineUp', [])
+    
+    # Encontrar jugadores del equipo
+    team_lineup = None
+    for tl in lineup:
+        if tl.get('contestantId') == contestant_id:
+            team_lineup = tl
+            break
+    
+    if not team_lineup:
+        return segments
+    
+    players = team_lineup.get('player', [])
+    
+    # Mapear playerId -> matchName
+    player_id_to_name = {p.get('playerId'): p.get('matchName') for p in players if p.get('matchName')}
+    
+    # Obtener sustituciones
+    substitutes = live_data.get('substitute', [])
+    team_subs = [s for s in substitutes if s.get('contestantId') == contestant_id]
+    
+    # Construir diccionario de entrada/salida
+    player_in = {}   # playerId -> timeMin
+    player_out = {}  # playerId -> timeMin
+    
+    for sub in team_subs:
+        on_id = sub.get('playerOnId')
+        off_id = sub.get('playerOffId')
+        time_min = sub.get('timeMin', 0)
+        
+        if on_id:
+            player_in[on_id] = time_min
+        if off_id:
+            player_out[off_id] = time_min
+    
+    # Para cada jugador determinar su tramo
+    for player in players:
+        player_id = player.get('playerId')
+        player_name = player.get('matchName')
+        
+        if not player_name:
+            continue
+        
+        stats = player.get('stat', [])
+        game_started = any(s.get('type') == 'gameStarted' and s.get('value') == '1' for s in stats)
+        
+        if game_started:
+            # Titular
+            min_start = 0
+            min_end = player_out.get(player_id)  # None si no salió
+        else:
+            # Suplente
+            min_start = player_in.get(player_id)
+            if min_start is None:
+                continue  # No entró
+            min_end = player_out.get(player_id)  # None si no salió
+        
+        segments[player_name] = (min_start, min_end)
+    
+    return segments
+
+
+def get_goals_timeline(match: Dict[str, Any], team_name: str) -> List[Dict]:
+    """
+    Retorna lista de goles con {timeMin, is_team_goal, is_home}
+    """
+    timeline = []
+    
+    result = extract_match_result(match)
+    if not result:
+        return timeline
+    
+    is_home = (result['home_team'] == team_name)
+    
+    match_info = match.get('matchInfo', {})
+    contestant_id = None
+    for c in match_info.get('contestant', []):
+        if c.get('name') == team_name:
+            contestant_id = c.get('id')
+            break
+    
+    live_data = match.get('liveData', {})
+    goals = live_data.get('goal', [])
+    
+    for goal in goals:
+        time_min = goal.get('timeMin', 0)
+        goal_contestant = goal.get('contestantId')
+        is_team_goal = (goal_contestant == contestant_id)
+        
+        timeline.append({
+            'timeMin': time_min,
+            'is_team_goal': is_team_goal,
+            'is_home': is_home
+        })
+    
+    return timeline
+
+
+def get_match_end_time(match: Dict[str, Any], goals_timeline: List[Dict]) -> int:
+    """
+    Determina el minuto final del partido basándose en goles y sustituciones.
+    """
+    max_time = 90
+    
+    # Máximo de goles
+    if goals_timeline:
+        max_goal_time = max(g['timeMin'] for g in goals_timeline)
+        max_time = max(max_time, max_goal_time)
+    
+    # Máximo de sustituciones
+    live_data = match.get('liveData', {})
+    substitutes = live_data.get('substitute', [])
+    if substitutes:
+        max_sub_time = max(s.get('timeMin', 0) for s in substitutes)
+        max_time = max(max_time, max_sub_time)
+    
+    return max_time
+
+
+def calculate_goals_in_segment(goals_timeline: List[Dict], min_start: int, min_end: int, is_home: bool) -> tuple:
+    """
+    Retorna (goles_a_favor, goles_en_contra) en el segmento [min_start, min_end]
+    """
+    gf = 0
+    gc = 0
+    
+    for goal in goals_timeline:
+        time = goal['timeMin']
+        if min_start <= time <= min_end:
+            if goal['is_team_goal']:
+                gf += 1
+            else:
+                gc += 1
+    
+    return gf, gc
+
+
+def calculate_goals_outside_segment(goals_timeline: List[Dict], min_start: int, min_end: int, match_end: int, is_home: bool) -> tuple:
+    """
+    Retorna (goles_a_favor, goles_en_contra) FUERA del segmento [min_start, min_end]
+    """
+    gf = 0
+    gc = 0
+    
+    for goal in goals_timeline:
+        time = goal['timeMin']
+        if time < min_start or time > min_end:
+            if goal['is_team_goal']:
+                gf += 1
+            else:
+                gc += 1
+    
+    return gf, gc
