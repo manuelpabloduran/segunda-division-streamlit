@@ -1015,6 +1015,8 @@ def calculate_competitiveness_index(data: Dict[str, Any], team_name: str, includ
             continue
         
         result = extract_match_result(match)
+        is_home = (result['home_team'] == team_name)
+        is_away = (result['away_team'] == team_name)
         
         # Filtros de jugadores titulares
         starters = get_team_starting_players(match, team_name)
