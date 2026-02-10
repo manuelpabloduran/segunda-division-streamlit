@@ -830,52 +830,128 @@ with tab4:
                     competitiveness_df = competitiveness_df[competitiveness_df['pct_minutes_played'] >= 0.05].copy()
                     
                     if not competitiveness_df.empty:
-                        # Crear gráfico scatter
-                        fig_comp = px.scatter(
-                            competitiveness_df,
-                            x='avg_indice_competitividad',
-                            y='sum_played_gd',
-                            size='pct_minutes_played',
-                            text='player_name',
-                            title=None,
-                            labels={
-                                'avg_indice_competitividad': 'Índice de Competitividad Promedio',
-                                'sum_played_gd': 'Diferencia de Gol - Jugador en Campo',
-                                'pct_minutes_played': '% Minutos'
-                            }
-                        )
+                        # Selectores de variables para el gráfico
+                        st.write("**Seleccionar variables para el gráfico:**")
+                        col_x, col_y = st.columns(2)
                         
-                        # Líneas de referencia en promedios
-                        x_mean = competitiveness_df['avg_indice_competitividad'].mean()
-                        y_mean = competitiveness_df['sum_played_gd'].mean()
+                        # Opciones disponibles
+                        metric_options = {
+                            'avg_indice_competitividad': 'Índice Promedio (General)',
+                            'sum_played_gd': 'Diferencia de Gol en Campo',
+                            'indice_titular': 'Índice como Titular',
+                            'indice_suplente_ganando': 'Índice Suplente (Ganando)',
+                            'indice_suplente_empatando': 'Índice Suplente (Empatando)',
+                            'indice_suplente_perdiendo': 'Índice Suplente (Perdiendo)',
+                            'sum_diff_points': 'Diferencia de Puntos',
+                            'total_minutes_played': 'Minutos Totales'
+                        }
                         
-                        fig_comp.add_hline(y=y_mean, line_dash="dash", line_color="gray", opacity=0.5)
-                        fig_comp.add_vline(x=x_mean, line_dash="dash", line_color="gray", opacity=0.5)
-                        
-                        # Personalizar apariencia
-                        fig_comp.update_traces(
-                            textposition='top center',
-                            marker=dict(
-                                sizemode='diameter',
-                                sizeref=0.02,
-                                line=dict(width=1, color='white')
+                        with col_x:
+                            x_metric = st.selectbox(
+                                "Eje X:",
+                                options=list(metric_options.keys()),
+                                index=0,  # Default: avg_indice_competitividad
+                                format_func=lambda x: metric_options[x],
+                                key="x_metric_selector"
                             )
-                        )
                         
-                        fig_comp.update_layout(
-                            height=600,
-                            showlegend=False,
-                            xaxis_title='Índice de Competitividad Promedio',
-                            yaxis_title='Diferencia de Gol con Jugador en Campo',
-                            margin=dict(l=10, r=10, t=30, b=10)
-                        )
+                        with col_y:
+                            y_metric = st.selectbox(
+                                "Eje Y:",
+                                options=list(metric_options.keys()),
+                                index=1,  # Default: sum_played_gd
+                                format_func=lambda x: metric_options[x],
+                                key="y_metric_selector"
+                            )
                         
-                        st.plotly_chart(fig_comp, use_container_width=True)
+                        # Determinar columna de tamaño según métrica seleccionada
+                        size_metric = 'pct_minutes_played'  # Default
+                        if 'titular' in x_metric or 'titular' in y_metric:
+                            if 'minutes_titular' in competitiveness_df.columns:
+                                size_metric = 'minutes_titular'
+                        elif 'suplente_ganando' in x_metric or 'suplente_ganando' in y_metric:
+                            if 'minutes_suplente_ganando' in competitiveness_df.columns:
+                                size_metric = 'minutes_suplente_ganando'
+                        elif 'suplente_empatando' in x_metric or 'suplente_empatando' in y_metric:
+                            if 'minutes_suplente_empatando' in competitiveness_df.columns:
+                                size_metric = 'minutes_suplente_empatando'
+                        elif 'suplente_perdiendo' in x_metric or 'suplente_perdiendo' in y_metric:
+                            if 'minutes_suplente_perdiendo' in competitiveness_df.columns:
+                                size_metric = 'minutes_suplente_perdiendo'
+                        
+                        # Filtrar filas con datos válidos en ambas métricas
+                        valid_data = competitiveness_df[
+                            competitiveness_df[x_metric].notna() & 
+                            competitiveness_df[y_metric].notna()
+                        ].copy()
+                        
+                        if not valid_data.empty:
+                            # Crear gráfico scatter
+                            fig_comp = px.scatter(
+                                valid_data,
+                                x=x_metric,
+                                y=y_metric,
+                                size=size_metric if size_metric in valid_data.columns else 'pct_minutes_played',
+                                text='player_name',
+                                title=None,
+                                labels=metric_options
+                            )
+                            
+                            # Líneas de referencia en promedios
+                            x_mean = valid_data[x_metric].mean()
+                            y_mean = valid_data[y_metric].mean()
+                            
+                            fig_comp.add_hline(y=y_mean, line_dash="dash", line_color="gray", opacity=0.5)
+                            fig_comp.add_vline(x=x_mean, line_dash="dash", line_color="gray", opacity=0.5)
+                            
+                            # Personalizar apariencia
+                            fig_comp.update_traces(
+                                textposition='top center',
+                                marker=dict(
+                                    sizemode='diameter',
+                                    sizeref=0.02,
+                                    line=dict(width=1, color='white')
+                                )
+                            )
+                            
+                            fig_comp.update_layout(
+                                height=600,
+                                showlegend=False,
+                                xaxis_title=metric_options[x_metric],
+                                yaxis_title=metric_options[y_metric],
+                                margin=dict(l=10, r=10, t=30, b=10)
+                            )
+                            
+                            st.plotly_chart(fig_comp, use_container_width=True)
+                        else:
+                            st.info("No hay datos suficientes para mostrar el gráfico con las métricas seleccionadas")
                         
                         # Mostrar tabla de datos
                         with st.expander("📋 Ver datos detallados"):
-                            display_df = competitiveness_df[['player_name', 'avg_indice_competitividad', 'sum_played_gd', 'sum_diff_points', 'total_minutes_played', 'pct_minutes_played', 'n_games']].copy()
-                            display_df.columns = ['Jugador', 'Índice Promedio', 'DG en Campo', 'Dif. Puntos', 'Minutos', '% Minutos', 'Partidos']
+                            # Preparar columnas para mostrar
+                            display_cols = ['player_name', 'avg_indice_competitividad', 'sum_played_gd', 'sum_diff_points', 
+                                          'indice_titular', 'indice_suplente_ganando', 'indice_suplente_empatando', 
+                                          'indice_suplente_perdiendo', 'total_minutes_played', 'pct_minutes_played', 'n_games']
+                            
+                            # Filtrar solo columnas que existen
+                            available_cols = [col for col in display_cols if col in competitiveness_df.columns]
+                            display_df = competitiveness_df[available_cols].copy()
+                            
+                            # Renombrar columnas
+                            col_names = {
+                                'player_name': 'Jugador',
+                                'avg_indice_competitividad': 'Índice Promedio',
+                                'sum_played_gd': 'DG en Campo',
+                                'sum_diff_points': 'Dif. Puntos',
+                                'indice_titular': 'Índice Titular',
+                                'indice_suplente_ganando': 'Índice Supl. Ganando',
+                                'indice_suplente_empatando': 'Índice Supl. Empatando',
+                                'indice_suplente_perdiendo': 'Índice Supl. Perdiendo',
+                                'total_minutes_played': 'Minutos',
+                                'pct_minutes_played': '% Minutos',
+                                'n_games': 'Partidos'
+                            }
+                            display_df = display_df.rename(columns={k: v for k, v in col_names.items() if k in display_df.columns})
                             display_df = display_df.sort_values('Índice Promedio', ascending=False)
                             st.dataframe(display_df, use_container_width=True, hide_index=True)
                     else:

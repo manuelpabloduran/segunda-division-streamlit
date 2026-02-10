@@ -989,6 +989,7 @@ def calculate_competitiveness_index(data: Dict[str, Any], team_name: str, includ
         
         # Obtener tramos de jugadores y goles
         player_segments = get_player_segments_in_match(match, team_name)
+        player_is_starter = get_player_starter_status(match, team_name)
         goals_timeline = get_goals_timeline(match, team_name)
         match_end_time = get_match_end_time(match, goals_timeline)
         
@@ -999,6 +1000,20 @@ def calculate_competitiveness_index(data: Dict[str, Any], team_name: str, includ
             
             minutes_played = min_end - min_start
             minutes_norm = min(minutes_played / 90, 1.0)
+            
+            # Determinar si es titular o suplente
+            is_starter = player_is_starter.get(player_name, False)
+            
+            # Si es suplente, determinar resultado del equipo al momento de entrar
+            sub_entry_situation = None
+            if not is_starter and min_start > 0:
+                gf_before, gc_before = calculate_goals_in_segment(goals_timeline, 0, min_start, is_home)
+                if gf_before > gc_before:
+                    sub_entry_situation = 'winning'
+                elif gf_before < gc_before:
+                    sub_entry_situation = 'losing'
+                else:
+                    sub_entry_situation = 'drawing'
             
             # Goles en su tramo
             gf_played, gc_played = calculate_goals_in_segment(goals_timeline, min_start, min_end, is_home)
@@ -1052,7 +1067,9 @@ def calculate_competitiveness_index(data: Dict[str, Any], team_name: str, includ
                 'played_gd': played_gd,
                 'total_points': total_points,
                 'indice_competitividad': indice,
-                'total_result': total_result
+                'total_result': total_result,
+                'is_starter': is_starter,
+                'sub_entry_situation': sub_entry_situation
             })
     
     if not player_match_records:
@@ -1060,7 +1077,7 @@ def calculate_competitiveness_index(data: Dict[str, Any], team_name: str, includ
     
     df = pd.DataFrame(player_match_records)
     
-    # Agregar por jugador
+    # Calcular métricas generales
     df_player = df.groupby('player_name', as_index=False).agg(
         total_minutes_played=('minutes_played', 'sum'),
         avg_indice_competitividad=('indice_competitividad', 'mean'),
@@ -1068,6 +1085,37 @@ def calculate_competitiveness_index(data: Dict[str, Any], team_name: str, includ
         sum_diff_points=('diff_points', 'sum'),
         n_games=('match_date', 'count')
     )
+    
+    # Calcular índices por condición
+    # Titular
+    df_starter = df[df['is_starter'] == True].groupby('player_name', as_index=False).agg(
+        indice_titular=('indice_competitividad', 'mean'),
+        minutes_titular=('minutes_played', 'sum')
+    )
+    
+    # Suplente ganando
+    df_sub_winning = df[(df['is_starter'] == False) & (df['sub_entry_situation'] == 'winning')].groupby('player_name', as_index=False).agg(
+        indice_suplente_ganando=('indice_competitividad', 'mean'),
+        minutes_suplente_ganando=('minutes_played', 'sum')
+    )
+    
+    # Suplente empatando
+    df_sub_drawing = df[(df['is_starter'] == False) & (df['sub_entry_situation'] == 'drawing')].groupby('player_name', as_index=False).agg(
+        indice_suplente_empatando=('indice_competitividad', 'mean'),
+        minutes_suplente_empatando=('minutes_played', 'sum')
+    )
+    
+    # Suplente perdiendo
+    df_sub_losing = df[(df['is_starter'] == False) & (df['sub_entry_situation'] == 'losing')].groupby('player_name', as_index=False).agg(
+        indice_suplente_perdiendo=('indice_competitividad', 'mean'),
+        minutes_suplente_perdiendo=('minutes_played', 'sum')
+    )
+    
+    # Merge todos
+    df_player = df_player.merge(df_starter, on='player_name', how='left')
+    df_player = df_player.merge(df_sub_winning, on='player_name', how='left')
+    df_player = df_player.merge(df_sub_drawing, on='player_name', how='left')
+    df_player = df_player.merge(df_sub_losing, on='player_name', how='left')
     
     # Calcular partidos totales del equipo (con filtros aplicados)
     total_team_games = len(df['match_date'].unique())
@@ -1154,6 +1202,50 @@ def get_player_segments_in_match(match: Dict[str, Any], team_name: str) -> Dict[
         segments[player_name] = (min_start, min_end)
     
     return segments
+
+
+def get_player_starter_status(match: Dict[str, Any], team_name: str) -> Dict[str, bool]:
+    """
+    Retorna dict {player_name: is_starter}
+    """
+    starter_status = {}
+    
+    match_info = match.get('matchInfo', {})
+    contestant_id = None
+    for c in match_info.get('contestant', []):
+        if c.get('name') == team_name:
+            contestant_id = c.get('id')
+            break
+    
+    if not contestant_id:
+        return starter_status
+    
+    live_data = match.get('liveData', {})
+    lineup = live_data.get('lineUp', [])
+    
+    # Encontrar jugadores del equipo
+    team_lineup = None
+    for tl in lineup:
+        if tl.get('contestantId') == contestant_id:
+            team_lineup = tl
+            break
+    
+    if not team_lineup:
+        return starter_status
+    
+    players = team_lineup.get('player', [])
+    
+    for player in players:
+        player_name = player.get('matchName')
+        if not player_name:
+            continue
+        
+        stats = player.get('stat', [])
+        game_started = any(s.get('type') == 'gameStarted' and s.get('value') == '1' for s in stats)
+        
+        starter_status[player_name] = game_started
+    
+    return starter_status
 
 
 def get_goals_timeline(match: Dict[str, Any], team_name: str) -> List[Dict]:
