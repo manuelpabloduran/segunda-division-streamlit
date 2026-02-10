@@ -695,7 +695,7 @@ with tab4:
                 exclude_players if exclude_players else None,
                 selected_manager,
                 match_type,
-                top_n_range,
+                filtered_team_names,  # top_n_teams ya calculado
                 date_range,
                 selected_rival_teams,
                 advanced_filters
@@ -774,7 +774,7 @@ with tab4:
                     selected_manager,
                     date_range if date_range else None,
                     match_type,
-                    top_n_range,
+                    filtered_team_names,
                     selected_rival_teams,
                     advanced_filters
                 )
@@ -833,7 +833,7 @@ with tab4:
                     selected_manager,
                     date_range if date_range else None,
                     match_type,
-                    top_n_range,
+                    filtered_team_names,
                     selected_rival_teams,
                     advanced_filters
                 )

@@ -714,7 +714,7 @@ def get_all_managers_for_team(data: Dict[str, Any], team_name: str) -> List[str]
 
 def calculate_team_stats_with_players(data: Dict[str, Any], team_name: str, include_players: List[str] = None, 
                                      exclude_players: List[str] = None, manager: str = None, 
-                                     match_type: str = 'Todos', top_n_range: tuple = None, 
+                                     match_type: str = 'Todos', top_n_teams: list = None, 
                                      date_range: tuple = None, rival_teams: list = None, 
                                      advanced_filters: dict = None) -> Dict[str, Any]:
     """
@@ -759,16 +759,6 @@ def calculate_team_stats_with_players(data: Dict[str, Any], team_name: str, incl
         'draws': 0,
         'losses': 0
     }
-    
-    # Obtener lista de equipos TOP N si es necesario
-    top_n_teams = None
-    if top_n_range:
-        full_standings = build_standings_table(data, match_type='Todos')
-        if not full_standings.empty:
-            min_pos, max_pos = top_n_range
-            top_n_teams = full_standings[
-                (full_standings['Pos'] >= min_pos) & (full_standings['Pos'] <= max_pos)
-            ]['Equipo'].tolist()
     
     for match in data['matches']:
         # Aplicar filtros generales del sidebar
@@ -914,7 +904,7 @@ def get_filtered_matches_by_players(data: Dict[str, Any], team_name: str, includ
 
 def get_minutes_played_by_player(data: Dict[str, Any], team_name: str, include_players: List[str] = None, 
                                 exclude_players: List[str] = None, manager: str = None, date_range: tuple = None,
-                                match_type: str = 'Todos', top_n_range: tuple = None, 
+                                match_type: str = 'Todos', top_n_teams: list = None, 
                                 rival_teams: list = None, advanced_filters: dict = None) -> Dict[str, int]:
     """
     Obtiene los minutos jugados totales por cada jugador en partidos filtrados.
@@ -934,16 +924,6 @@ def get_minutes_played_by_player(data: Dict[str, Any], team_name: str, include_p
         return {}
     
     player_minutes = {}
-    
-    # Obtener lista de equipos TOP N si es necesario
-    top_n_teams = None
-    if top_n_range:
-        full_standings = build_standings_table(data, match_type='Todos')
-        if not full_standings.empty:
-            min_pos, max_pos = top_n_range
-            top_n_teams = full_standings[
-                (full_standings['Pos'] >= min_pos) & (full_standings['Pos'] <= max_pos)
-            ]['Equipo'].tolist()
     
     for match in data['matches']:
         # Aplicar filtros generales del sidebar
@@ -1016,7 +996,7 @@ def get_minutes_played_by_player(data: Dict[str, Any], team_name: str, include_p
 
 def calculate_competitiveness_index(data: Dict[str, Any], team_name: str, include_players: List[str] = None, 
                                   exclude_players: List[str] = None, manager: str = None, date_range: tuple = None,
-                                  match_type: str = 'Todos', top_n_range: tuple = None, 
+                                  match_type: str = 'Todos', top_n_teams: list = None, 
                                   rival_teams: list = None, advanced_filters: dict = None) -> pd.DataFrame:
     """
     Calcula el índice de competitividad por jugador según la fórmula:
@@ -1028,16 +1008,6 @@ def calculate_competitiveness_index(data: Dict[str, Any], team_name: str, includ
         return pd.DataFrame()
     
     player_match_records = []
-    
-    # Obtener lista de equipos TOP N si es necesario
-    top_n_teams = None
-    if top_n_range:
-        full_standings = build_standings_table(data, match_type='Todos')
-        if not full_standings.empty:
-            min_pos, max_pos = top_n_range
-            top_n_teams = full_standings[
-                (full_standings['Pos'] >= min_pos) & (full_standings['Pos'] <= max_pos)
-            ]['Equipo'].tolist()
     
     for match in data['matches']:
         # Aplicar filtros generales del sidebar
