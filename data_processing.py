@@ -334,6 +334,83 @@ def calculate_team_stats(matches: List[Dict[str, Any]], match_type: str = 'Todos
     return df
 
 
+def should_include_match(match: Dict[str, Any], team_name: str, match_type: str = 'Todos', 
+                        date_range: tuple = None, rival_teams: list = None, 
+                        advanced_filters: dict = None, top_n_teams: list = None) -> bool:
+    """
+    Helper para determinar si un partido debe ser incluido según los filtros.
+    
+    Args:
+        match: Partido individual
+        team_name: Nombre del equipo a analizar
+        match_type: 'Todos', 'Local', o 'Visitante'
+        date_range: Tupla (start_date, end_date)
+        rival_teams: Lista de equipos rivales específicos
+        advanced_filters: Diccionario con filtros avanzados
+        top_n_teams: Lista de equipos en el rango TOP N
+    
+    Returns:
+        True si el partido debe ser incluido
+    """
+    result = extract_match_result(match)
+    if result is None:
+        return False
+    
+    # Verificar si el equipo participa
+    is_home = (result['home_team'] == team_name)
+    is_away = (result['away_team'] == team_name)
+    
+    if not is_home and not is_away:
+        return False
+    
+    # Aplicar filtro de tipo de partido
+    if match_type == 'Local' and not is_home:
+        return False
+    if match_type == 'Visitante' and not is_away:
+        return False
+    
+    # Aplicar filtro de fechas
+    if date_range:
+        date_str = result['date']
+        if isinstance(date_str, str):
+            date_str = date_str.replace('Z', '')
+        
+        try:
+            match_date = pd.to_datetime(date_str, format='%Y-%m-%d', errors='coerce')
+            if pd.notna(match_date):
+                start_date, end_date = date_range
+                match_date_only = match_date.normalize()
+                start_datetime = pd.Timestamp(start_date)
+                end_datetime = pd.Timestamp(end_date)
+                
+                if not (start_datetime <= match_date_only <= end_datetime):
+                    return False
+        except:
+            pass
+    
+    # Aplicar filtro de equipos rivales
+    if rival_teams:
+        rival = result['away_team'] if is_home else result['home_team']
+        if rival not in rival_teams:
+            return False
+    
+    # Aplicar filtro de TOP N
+    if top_n_teams:
+        rival = result['away_team'] if is_home else result['home_team']
+        if rival not in top_n_teams:
+            return False
+    
+    # Aplicar filtros avanzados
+    if advanced_filters:
+        if advanced_filters.get('no_red_cards'):
+            if match_has_red_cards(match):
+                return False
+        
+        # Otros filtros avanzados se aplican más adelante porque requieren análisis del partido
+    
+    return True
+
+
 def build_standings_table(data: Dict[str, Any], match_type: str = 'Todos', top_n_range: tuple = None, date_range: tuple = None, rival_teams: list = None, advanced_filters: dict = None) -> pd.DataFrame:
     """
     Construye la tabla de clasificación completa desde los datos crudos.
@@ -635,15 +712,25 @@ def get_all_managers_for_team(data: Dict[str, Any], team_name: str) -> List[str]
     return sorted(list(all_managers))
 
 
-def calculate_team_stats_with_players(data: Dict[str, Any], team_name: str, include_players: List[str] = None, exclude_players: List[str] = None, manager: str = None) -> Dict[str, Any]:
+def calculate_team_stats_with_players(data: Dict[str, Any], team_name: str, include_players: List[str] = None, 
+                                     exclude_players: List[str] = None, manager: str = None, 
+                                     match_type: str = 'Todos', top_n_range: tuple = None, 
+                                     date_range: tuple = None, rival_teams: list = None, 
+                                     advanced_filters: dict = None) -> Dict[str, Any]:
     """
-    Calcula estadísticas de un equipo filtrado por jugadores titulares.
+    Calcula estadísticas de un equipo filtrado por jugadores titulares y filtros generales.
     
     Args:
         data: Datos completos del archivo JSON
         team_name: Nombre del equipo
         include_players: Lista de jugadores que DEBEN ser titulares (todos)
         exclude_players: Lista de jugadores que NO deben ser titulares (ninguno)
+        manager: Filtro de entrenador
+        match_type: 'Todos', 'Local', o 'Visitante'
+        top_n_range: Tupla (min, max) para filtrar por rango de posiciones
+        date_range: Tupla (start_date, end_date) para filtrar por fechas
+        rival_teams: Lista de equipos rivales específicos
+        advanced_filters: Diccionario con filtros avanzados
         
     Returns:
         Diccionario con estadísticas
@@ -673,18 +760,25 @@ def calculate_team_stats_with_players(data: Dict[str, Any], team_name: str, incl
         'losses': 0
     }
     
+    # Obtener lista de equipos TOP N si es necesario
+    top_n_teams = None
+    if top_n_range:
+        full_standings = build_standings_table(data, match_type='Todos')
+        if not full_standings.empty:
+            min_pos, max_pos = top_n_range
+            top_n_teams = full_standings[
+                (full_standings['Pos'] >= min_pos) & (full_standings['Pos'] <= max_pos)
+            ]['Equipo'].tolist()
+    
     for match in data['matches']:
-        # Extraer resultado del partido
-        result = extract_match_result(match)
-        if result is None:
+        # Aplicar filtros generales del sidebar
+        if not should_include_match(match, team_name, match_type, date_range, rival_teams, advanced_filters, top_n_teams):
             continue
         
-        # Verificar si el equipo participa en este partido
+        # Extraer resultado del partido (ya validado por should_include_match)
+        result = extract_match_result(match)
         is_home = (result['home_team'] == team_name)
         is_away = (result['away_team'] == team_name)
-        
-        if not is_home and not is_away:
-            continue
         
         # Obtener jugadores titulares del equipo en este partido
         starters = get_team_starting_players(match, team_name)
@@ -818,7 +912,10 @@ def get_filtered_matches_by_players(data: Dict[str, Any], team_name: str, includ
     return df
 
 
-def get_minutes_played_by_player(data: Dict[str, Any], team_name: str, include_players: List[str] = None, exclude_players: List[str] = None, manager: str = None, date_range: tuple = None) -> Dict[str, int]:
+def get_minutes_played_by_player(data: Dict[str, Any], team_name: str, include_players: List[str] = None, 
+                                exclude_players: List[str] = None, manager: str = None, date_range: tuple = None,
+                                match_type: str = 'Todos', top_n_range: tuple = None, 
+                                rival_teams: list = None, advanced_filters: dict = None) -> Dict[str, int]:
     """
     Obtiene los minutos jugados totales por cada jugador en partidos filtrados.
     
@@ -838,28 +935,20 @@ def get_minutes_played_by_player(data: Dict[str, Any], team_name: str, include_p
     
     player_minutes = {}
     
+    # Obtener lista de equipos TOP N si es necesario
+    top_n_teams = None
+    if top_n_range:
+        full_standings = build_standings_table(data, match_type='Todos')
+        if not full_standings.empty:
+            min_pos, max_pos = top_n_range
+            top_n_teams = full_standings[
+                (full_standings['Pos'] >= min_pos) & (full_standings['Pos'] <= max_pos)
+            ]['Equipo'].tolist()
+    
     for match in data['matches']:
-        # Extraer resultado del partido
-        result = extract_match_result(match)
-        if result is None:
+        # Aplicar filtros generales del sidebar
+        if not should_include_match(match, team_name, match_type, date_range, rival_teams, advanced_filters, top_n_teams):
             continue
-        
-        # Verificar si el equipo participa en este partido
-        is_home = (result['home_team'] == team_name)
-        is_away = (result['away_team'] == team_name)
-        
-        if not is_home and not is_away:
-            continue
-        
-        # Aplicar filtro de fechas si existe
-        if date_range:
-            try:
-                date_str = str(result['date']).replace('Z', '').split('T')[0]
-                match_date = pd.to_datetime(date_str, format='%Y-%m-%d', errors='coerce')
-                if pd.isna(match_date) or not (date_range[0] <= match_date <= date_range[1]):
-                    continue
-            except:
-                continue
         
         # Obtener jugadores titulares del equipo en este partido
         starters = get_team_starting_players(match, team_name)
@@ -925,7 +1014,10 @@ def get_minutes_played_by_player(data: Dict[str, Any], team_name: str, include_p
     return player_minutes
 
 
-def calculate_competitiveness_index(data: Dict[str, Any], team_name: str, include_players: List[str] = None, exclude_players: List[str] = None, manager: str = None, date_range: tuple = None) -> pd.DataFrame:
+def calculate_competitiveness_index(data: Dict[str, Any], team_name: str, include_players: List[str] = None, 
+                                  exclude_players: List[str] = None, manager: str = None, date_range: tuple = None,
+                                  match_type: str = 'Todos', top_n_range: tuple = None, 
+                                  rival_teams: list = None, advanced_filters: dict = None) -> pd.DataFrame:
     """
     Calcula el índice de competitividad por jugador según la fórmula:
     indice = (minutes_norm + played_points + diff_points + played_gd + total_points) / 3.33
@@ -937,26 +1029,22 @@ def calculate_competitiveness_index(data: Dict[str, Any], team_name: str, includ
     
     player_match_records = []
     
+    # Obtener lista de equipos TOP N si es necesario
+    top_n_teams = None
+    if top_n_range:
+        full_standings = build_standings_table(data, match_type='Todos')
+        if not full_standings.empty:
+            min_pos, max_pos = top_n_range
+            top_n_teams = full_standings[
+                (full_standings['Pos'] >= min_pos) & (full_standings['Pos'] <= max_pos)
+            ]['Equipo'].tolist()
+    
     for match in data['matches']:
+        # Aplicar filtros generales del sidebar
+        if not should_include_match(match, team_name, match_type, date_range, rival_teams, advanced_filters, top_n_teams):
+            continue
+        
         result = extract_match_result(match)
-        if result is None:
-            continue
-        
-        # Verificar equipo participa
-        is_home = (result['home_team'] == team_name)
-        is_away = (result['away_team'] == team_name)
-        if not is_home and not is_away:
-            continue
-        
-        # Aplicar filtro de fechas si existe
-        if date_range:
-            try:
-                date_str = str(result['date']).replace('Z', '').split('T')[0]
-                match_date = pd.to_datetime(date_str, format='%Y-%m-%d', errors='coerce')
-                if pd.isna(match_date) or not (date_range[0] <= match_date <= date_range[1]):
-                    continue
-            except:
-                continue
         
         # Filtros de jugadores titulares
         starters = get_team_starting_players(match, team_name)

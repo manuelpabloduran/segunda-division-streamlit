@@ -693,7 +693,12 @@ with tab4:
                 selected_team_analysis, 
                 include_players if include_players else None,
                 exclude_players if exclude_players else None,
-                selected_manager
+                selected_manager,
+                match_type,
+                top_n_range,
+                date_range,
+                selected_rival_teams,
+                advanced_filters
             )
             
             # Mostrar estadísticas
@@ -767,7 +772,11 @@ with tab4:
                     include_players if include_players else None,
                     exclude_players if exclude_players else None,
                     selected_manager,
-                    date_range if date_range else None
+                    date_range if date_range else None,
+                    match_type,
+                    top_n_range,
+                    selected_rival_teams,
+                    advanced_filters
                 )
                 
                 if player_minutes:
@@ -822,7 +831,11 @@ with tab4:
                     include_players if include_players else None,
                     exclude_players if exclude_players else None,
                     selected_manager,
-                    date_range if date_range else None
+                    date_range if date_range else None,
+                    match_type,
+                    top_n_range,
+                    selected_rival_teams,
+                    advanced_filters
                 )
                 
                 if not competitiveness_df.empty and len(competitiveness_df) > 0:
