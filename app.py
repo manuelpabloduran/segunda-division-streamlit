@@ -1004,7 +1004,12 @@ with tab4:
                     selected_team_analysis,
                     include_players if include_players else None,
                     exclude_players if exclude_players else None,
-                    selected_manager
+                    selected_manager,
+                    match_type,
+                    filtered_team_names,
+                    date_range,
+                    selected_rival_teams,
+                    advanced_filters
                 )
                 
                 if not filtered_matches.empty:

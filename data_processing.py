@@ -828,9 +828,13 @@ def calculate_team_stats_with_players(data: Dict[str, Any], team_name: str, incl
     return stats
 
 
-def get_filtered_matches_by_players(data: Dict[str, Any], team_name: str, include_players: List[str] = None, exclude_players: List[str] = None, manager: str = None) -> pd.DataFrame:
+def get_filtered_matches_by_players(data: Dict[str, Any], team_name: str, include_players: List[str] = None, 
+                                   exclude_players: List[str] = None, manager: str = None,
+                                   match_type: str = 'Todos', top_n_teams: list = None,
+                                   date_range: tuple = None, rival_teams: list = None,
+                                   advanced_filters: dict = None) -> pd.DataFrame:
     """
-    Obtiene la lista de partidos filtrados por jugadores titulares.
+    Obtiene la lista de partidos filtrados por jugadores titulares y filtros generales.
     
     Args:
         data: Datos completos del archivo JSON
@@ -838,6 +842,11 @@ def get_filtered_matches_by_players(data: Dict[str, Any], team_name: str, includ
         include_players: Lista de jugadores que DEBEN ser titulares (todos)
         exclude_players: Lista de jugadores que NO deben ser titulares (ninguno)
         manager: Nombre del entrenador a filtrar (opcional)
+        match_type: 'Todos', 'Local', o 'Visitante'
+        top_n_teams: Lista de equipos en el rango TOP N
+        date_range: Tupla (start_date, end_date)
+        rival_teams: Lista de equipos rivales específicos
+        advanced_filters: Diccionario con filtros avanzados
         
     Returns:
         DataFrame con partidos filtrados
@@ -848,16 +857,13 @@ def get_filtered_matches_by_players(data: Dict[str, Any], team_name: str, includ
     filtered_matches = []
     
     for match in data['matches']:
+        # Aplicar filtros generales del sidebar
+        if not should_include_match(match, team_name, match_type, date_range, rival_teams, advanced_filters, top_n_teams):
+            continue
+        
         # Extraer resultado del partido
         result = extract_match_result(match)
         if result is None:
-            continue
-        
-        # Verificar si el equipo participa en este partido
-        is_home = (result['home_team'] == team_name)
-        is_away = (result['away_team'] == team_name)
-        
-        if not is_home and not is_away:
             continue
         
         # Obtener jugadores titulares del equipo en este partido
