@@ -834,8 +834,8 @@ with tab4:
                         st.write("**Seleccionar variables para el gráfico:**")
                         col_x, col_y = st.columns(2)
                         
-                        # Opciones disponibles
-                        metric_options = {
+                        # Opciones disponibles - solo incluir las que existen en el DataFrame
+                        all_metric_options = {
                             'avg_indice_competitividad': 'Índice Promedio (General)',
                             'sum_played_gd': 'Diferencia de Gol en Campo',
                             'indice_titular': 'Índice como Titular',
@@ -846,11 +846,19 @@ with tab4:
                             'total_minutes_played': 'Minutos Totales'
                         }
                         
+                        # Filtrar solo métricas que existen en el DataFrame
+                        metric_options = {k: v for k, v in all_metric_options.items() if k in competitiveness_df.columns}
+                        available_metrics = list(metric_options.keys())
+                        
+                        # Determinar índices default (si existen)
+                        default_x = 0 if 'avg_indice_competitividad' in available_metrics else 0
+                        default_y = available_metrics.index('sum_played_gd') if 'sum_played_gd' in available_metrics else (1 if len(available_metrics) > 1 else 0)
+                        
                         with col_x:
                             x_metric = st.selectbox(
                                 "Eje X:",
-                                options=list(metric_options.keys()),
-                                index=0,  # Default: avg_indice_competitividad
+                                options=available_metrics,
+                                index=default_x,
                                 format_func=lambda x: metric_options[x],
                                 key="x_metric_selector"
                             )
@@ -858,8 +866,8 @@ with tab4:
                         with col_y:
                             y_metric = st.selectbox(
                                 "Eje Y:",
-                                options=list(metric_options.keys()),
-                                index=1,  # Default: sum_played_gd
+                                options=available_metrics,
+                                index=default_y,
                                 format_func=lambda x: metric_options[x],
                                 key="y_metric_selector"
                             )
@@ -880,10 +888,15 @@ with tab4:
                                 size_metric = 'minutes_suplente_perdiendo'
                         
                         # Filtrar filas con datos válidos en ambas métricas
-                        valid_data = competitiveness_df[
-                            competitiveness_df[x_metric].notna() & 
-                            competitiveness_df[y_metric].notna()
-                        ].copy()
+                        # Verificar que ambas columnas existan antes de filtrar
+                        if x_metric in competitiveness_df.columns and y_metric in competitiveness_df.columns:
+                            valid_data = competitiveness_df[
+                                competitiveness_df[x_metric].notna() & 
+                                competitiveness_df[y_metric].notna()
+                            ].copy()
+                        else:
+                            valid_data = competitiveness_df.copy()
+
                         
                         if not valid_data.empty:
                             # Crear gráfico scatter
