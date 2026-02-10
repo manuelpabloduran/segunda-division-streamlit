@@ -899,15 +899,20 @@ with tab4:
 
                         
                         if not valid_data.empty:
-                            # Crear gráfico scatter
+                            # Determinar métrica de color (usar % minutos o minutos específicos si existen)
+                            color_metric = size_metric if size_metric in valid_data.columns else 'pct_minutes_played'
+                            
+                            # Crear gráfico scatter con gradient de color
                             fig_comp = px.scatter(
                                 valid_data,
                                 x=x_metric,
                                 y=y_metric,
                                 size=size_metric if size_metric in valid_data.columns else 'pct_minutes_played',
+                                color=color_metric,
                                 text='player_name',
                                 title=None,
-                                labels=metric_options
+                                labels=metric_options,
+                                color_continuous_scale='Viridis'
                             )
                             
                             # Líneas de referencia en promedios
@@ -917,12 +922,17 @@ with tab4:
                             fig_comp.add_hline(y=y_mean, line_dash="dash", line_color="gray", opacity=0.5)
                             fig_comp.add_vline(x=x_mean, line_dash="dash", line_color="gray", opacity=0.5)
                             
+                            # Calcular sizeref dinámico basado en los valores reales
+                            size_col = size_metric if size_metric in valid_data.columns else 'pct_minutes_played'
+                            max_size = valid_data[size_col].max()
+                            sizeref_value = max_size / 50 if max_size > 0 else 2
+                            
                             # Personalizar apariencia
                             fig_comp.update_traces(
                                 textposition='top center',
                                 marker=dict(
                                     sizemode='diameter',
-                                    sizeref=0.02,
+                                    sizeref=sizeref_value,
                                     line=dict(width=1, color='white')
                                 )
                             )
