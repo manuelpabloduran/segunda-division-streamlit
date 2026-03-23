@@ -1131,6 +1131,8 @@ def calculate_competitiveness_index(data: Dict[str, Any], team_name: str, includ
                 'without_points': without_points,
                 'diff_points': diff_points,
                 'played_gd': played_gd,
+                'gf_played': gf_played,
+                'gc_played': gc_played,
                 'total_points': total_points,
                 'indice_competitividad': indice,
                 'total_result': total_result,
@@ -1148,6 +1150,8 @@ def calculate_competitiveness_index(data: Dict[str, Any], team_name: str, includ
         total_minutes_played=('minutes_played', 'sum'),
         avg_indice_competitividad=('indice_competitividad', 'mean'),
         sum_played_gd=('played_gd', 'sum'),
+        sum_gf_played=('gf_played', 'sum'),
+        sum_gc_played=('gc_played', 'sum'),
         sum_diff_points=('diff_points', 'sum'),
         n_games=('match_date', 'count')
     )
@@ -1186,6 +1190,16 @@ def calculate_competitiveness_index(data: Dict[str, Any], team_name: str, includ
     # Calcular partidos totales del equipo (con filtros aplicados)
     total_team_games = len(df['match_date'].unique())
     df_player['pct_minutes_played'] = (df_player['total_minutes_played'] / (total_team_games * 90)).clip(upper=1.0)
+    
+    # Calcular métricas de eficiencia ofensiva y defensiva
+    df_player['minutos_por_gol_marcado'] = df_player.apply(
+        lambda row: row['total_minutes_played'] / row['sum_gf_played'] if row['sum_gf_played'] > 0 else None,
+        axis=1
+    )
+    df_player['minutos_por_gol_encajado'] = df_player.apply(
+        lambda row: row['total_minutes_played'] / row['sum_gc_played'] if row['sum_gc_played'] > 0 else None,
+        axis=1
+    )
     
     return df_player
 

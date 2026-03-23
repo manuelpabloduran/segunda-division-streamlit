@@ -995,6 +995,79 @@ with tab4:
                 else:
                     st.info("No hay datos de índice de competitividad disponibles")
                 
+                # Nuevo gráfico: Eficiencia Ofensiva vs Defensiva
+                st.divider()
+                st.write("**⚽ Eficiencia Ofensiva vs Defensiva**")
+                
+                if not competitiveness_df.empty and 'minutos_por_gol_marcado' in competitiveness_df.columns and 'minutos_por_gol_encajado' in competitiveness_df.columns:
+                    # Filtrar jugadores con datos válidos en ambas métricas
+                    efficiency_df = competitiveness_df[
+                        competitiveness_df['minutos_por_gol_marcado'].notna() & 
+                        competitiveness_df['minutos_por_gol_encajado'].notna() &
+                        (competitiveness_df['pct_minutes_played'] >= 0.05)
+                    ].copy()
+                    
+                    if not efficiency_df.empty and len(efficiency_df) > 0:
+                        # Crear gráfico scatter
+                        fig_efficiency = px.scatter(
+                            efficiency_df,
+                            x='minutos_por_gol_marcado',
+                            y='minutos_por_gol_encajado',
+                            size='total_minutes_played',
+                            color='total_minutes_played',
+                            text='player_name',
+                            title=None,
+                            labels={
+                                'minutos_por_gol_marcado': 'Minutos por Gol Marcado (más es peor)',
+                                'minutos_por_gol_encajado': 'Minutos por Gol Encajado (más es mejor)',
+                                'total_minutes_played': 'Minutos Totales'
+                            },
+                            color_continuous_scale='Viridis',
+                            hover_data={
+                                'player_name': False,
+                                'minutos_por_gol_marcado': ':.1f',
+                                'minutos_por_gol_encajado': ':.1f',
+                                'total_minutes_played': True
+                            }
+                        )
+                        
+                        # Calcular tamaño dinámico
+                        max_size = efficiency_df['total_minutes_played'].max()
+                        sizeref_value = max_size / 50 if max_size > 0 else 2
+                        
+                        # Líneas de referencia en promedios
+                        x_mean = efficiency_df['minutos_por_gol_marcado'].mean()
+                        y_mean = efficiency_df['minutos_por_gol_encajado'].mean()
+                        
+                        fig_efficiency.add_hline(y=y_mean, line_dash="dash", line_color="gray", opacity=0.5)
+                        fig_efficiency.add_vline(x=x_mean, line_dash="dash", line_color="gray", opacity=0.5)
+                        
+                        # Personalizar apariencia
+                        fig_efficiency.update_traces(
+                            textposition='top center',
+                            marker=dict(
+                                sizemode='diameter',
+                                sizeref=sizeref_value,
+                                line=dict(width=1, color='white')
+                            )
+                        )
+                        
+                        fig_efficiency.update_layout(
+                            height=600,
+                            xaxis_title='Minutos por Gol Marcado (⬅️ Mejor)',
+                            yaxis_title='Minutos por Gol Encajado (⬆️ Mejor)',
+                            margin=dict(l=10, r=10, t=30, b=10)
+                        )
+                        
+                        st.plotly_chart(fig_efficiency, use_container_width=True)
+                        
+                        # Información adicional
+                        st.caption("💡 **Interpretación:** Jugadores en la esquina superior izquierda tienen mejor eficiencia (hacen goles frecuentemente y reciben pocos).")
+                    else:
+                        st.info("No hay suficientes datos para mostrar el gráfico de eficiencia")
+                else:
+                    st.info("No hay datos de eficiencia disponibles")
+                
                 # Tabla de partidos
                 st.divider()
                 st.write("**📋 Partidos**")
