@@ -1,5 +1,5 @@
 """
-Script para descargar todos los partidos de la Segunda División 2025/2026.
+Script para descargar todos los partidos de La Liga Primera División 2026/2027.
 Itera sobre el schedule y descarga detalles de cada partido.
 Soporta modo incremental (delta) y filtrado por fecha.
 """
@@ -17,8 +17,11 @@ from config import (
     TIMEOUT,
     MAX_RETRIES,
     BACKOFF_SECONDS,
+    LA_LIGA_PRIMERA_DIVISION_TMCL_ID,
     SEGUNDA_DIVISION_ESPAÑA_TMCL_ID
 )
+
+TOURNAMENT_CALENDAR_ID = LA_LIGA_PRIMERA_DIVISION_TMCL_ID or SEGUNDA_DIVISION_ESPAÑA_TMCL_ID
 
 
 def load_existing_matches(output_file: str) -> dict:
@@ -55,13 +58,13 @@ def load_existing_matches(output_file: str) -> dict:
 
 
 def download_all_matches(
-    output_file: str = "segunda_division_2025_2026_matches.json",
+    output_file: str = "la_liga_2026_2027_matches.json",
     cache_dir: str = "match_cache",
     only_played: bool = True,
     incremental: bool = True
 ):
     """
-    Descarga todos los partidos de la Segunda División temporada 2025/2026.
+    Descarga todos los partidos de la Liga temporada 2026/2027.
     
     Args:
         output_file: Archivo de salida con todos los partidos consolidados
@@ -70,7 +73,7 @@ def download_all_matches(
         incremental: Si True, solo descarga partidos nuevos (delta)
     """
     print("="*80)
-    print("DESCARGANDO PARTIDOS - SEGUNDA DIVISIÓN 2025/2026")
+    print("DESCARGANDO PARTIDOS - LA LIGA PRIMERA DIVISIÓN 2026/2027")
     print("="*80)
     print(f"\nModo: {'Incremental (delta)' if incremental else 'Completo'}")
     print(f"Filtro: {'Solo partidos jugados hasta hoy' if only_played else 'Todos los partidos'}")
@@ -109,7 +112,7 @@ def download_all_matches(
     print(f"\n2. Obteniendo schedule de la temporada...")
     try:
         schedule_data = client.get_tournament_schedule(
-            SEGUNDA_DIVISION_ESPAÑA_TMCL_ID,
+            TOURNAMENT_CALENDAR_ID,
             extra_params={"_fmt": "json"}
         )
         
@@ -243,9 +246,9 @@ def download_all_matches(
     
     consolidated_data = {
         "metadata": {
-            "competition": "Segunda División España",
-            "season": "2025/2026",
-            "tournamentCalendarId": SEGUNDA_DIVISION_ESPAÑA_TMCL_ID,
+            "competition": "La Liga Primera División",
+            "season": "2026/2027",
+            "tournamentCalendarId": TOURNAMENT_CALENDAR_ID,
             "lastUpdate": datetime.now().isoformat(),
             "downloadMode": "incremental" if incremental else "full",
             "totalMatches": total_in_file,
@@ -283,10 +286,10 @@ def download_all_matches(
 
 
 if __name__ == "__main__":
-    print("\n🏆 SEGUNDA DIVISIÓN ESPAÑA - DESCARGA DE DATOS\n")
+    print("\n🏆 LA LIGA PRIMERA DIVISIÓN 2026/2027 - DESCARGA DE DATOS\n")
     
     import argparse
-    parser = argparse.ArgumentParser(description='Descarga partidos de la Segunda División')
+    parser = argparse.ArgumentParser(description='Descarga partidos de La Liga Primera División')
     parser.add_argument('--full', action='store_true', help='Descarga completa (ignora base existente)')
     parser.add_argument('--all-dates', action='store_true', help='Incluir partidos futuros')
     args = parser.parse_args()
@@ -304,7 +307,7 @@ if __name__ == "__main__":
             print("\n✅ Base de datos ya está actualizada")
         elif data and data['matches']:
             print("\n✅ ¡DESCARGA COMPLETADA EXITOSAMENTE!")
-            print(f"\nArchivo generado: 'segunda_division_2025_2026_matches.json'")
+            print(f"\nArchivo generado: 'la_liga_2026_2027_matches.json'")
             print(f"Total de partidos: {len(data['matches'])}")
         else:
             print("\n⚠️  No se pudieron descargar datos")

@@ -13,6 +13,8 @@ match_cache/
 
 # Data files
 segunda_division_2025_2026_matches.json
+la_liga_2026_2027_matches.json
+tournament_schedule_full.json
 
 # IDE
 .vscode/

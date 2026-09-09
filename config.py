@@ -42,5 +42,10 @@ MAX_RETRIES = 3
 BACKOFF_SECONDS = 1.5
 
 # Competiciones
-SEGUNDA_DIVISION_ESPAÑA_COMP_ID = "3is4bkgf3loxv9qfg3hm8zfqb"  # Competition ID
-SEGUNDA_DIVISION_ESPAÑA_TMCL_ID = "dko0hzifl1xv9c51s3ai017v8"  # Tournament Calendar ID (2025/2026)
+# La Liga Primera División 2026/2027
+LA_LIGA_PRIMERA_DIVISION_COMP_ID = "34pl8szyvrbwcmfkuocjm3r6t"  # Competition ID
+LA_LIGA_PRIMERA_DIVISION_TMCL_ID = "830epggffy1nfkfyrtpqdwhlg"  # Tournament Calendar ID (2026/2027)
+
+# Compatibilidad hacia atrás con la versión actual del proyecto
+SEGUNDA_DIVISION_ESPAÑA_COMP_ID = LA_LIGA_PRIMERA_DIVISION_COMP_ID
+SEGUNDA_DIVISION_ESPAÑA_TMCL_ID = LA_LIGA_PRIMERA_DIVISION_TMCL_ID

@@ -8,7 +8,7 @@ from download_all_matches import download_all_matches
 
 
 def needs_update(
-    data_file: str = "segunda_division_2025_2026_matches.json",
+    data_file: str = "la_liga_2026_2027_matches.json",
     max_hours: int = 24
 ) -> bool:
     """
@@ -49,7 +49,7 @@ def needs_update(
         return True
 
 
-def get_last_update_info(data_file: str = "segunda_division_2025_2026_matches.json") -> dict:
+def get_last_update_info(data_file: str = "la_liga_2026_2027_matches.json") -> dict:
     """
     Obtiene información sobre la última actualización.
     

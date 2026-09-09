@@ -1,5 +1,5 @@
 """
-Streamlit App - Tabla de Clasificación Segunda División España
+Streamlit App - Tabla de Clasificación La Liga Primera División
 Con actualización automática de datos desde API de Opta
 """
 import streamlit as st
@@ -28,14 +28,14 @@ from data_processing import (
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Segunda División - Tabla de Clasificación",
+    page_title="La Liga - Tabla de Clasificación",
     page_icon="⚽",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # Título principal
-st.title("⚽ Segunda División España 2025/2026")
+st.title("⚽ La Liga Primera División 2026/2027")
 st.markdown("### Tabla de Clasificación y Estadísticas")
 
 # Auto-actualización al cargar la app (silenciosa)
@@ -49,7 +49,7 @@ def load_and_update_data():
     auto_update_if_needed(max_hours=24, verbose=False)
     
     # Cargar datos
-    data_file = Path("segunda_division_2025_2026_matches.json")
+    data_file = Path("la_liga_2026_2027_matches.json")
     if not data_file.exists():
         return None
     
@@ -249,7 +249,7 @@ st.divider()
 tab1, tab2, tab3, tab4 = st.tabs(["📊 Tabla de Clasificación", "🔍 Listado de Partidos", "📈 Estadísticas", "👥 Análisis Equipo"])
 
 with tab1:
-    st.subheader("Tabla de Clasificación - Segunda División")
+    st.subheader("Tabla de Clasificación - La Liga")
     
     # Mostrar información de filtros aplicados
     if filtered_team_names:
@@ -492,7 +492,7 @@ with tab1:
         st.download_button(
             label="📥 Descargar tabla (CSV)",
             data=csv,
-            file_name="segunda_division_clasificacion.csv",
+            file_name="la_liga_clasificacion.csv",
             mime="text/csv"
         )
 
