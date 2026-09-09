@@ -7,6 +7,7 @@ import json
 import pandas as pd
 import plotly.express as px
 from pathlib import Path
+from download_all_matches import download_all_matches
 from update_utils import (
     get_last_update_info,
     format_last_update_message,
@@ -42,17 +43,28 @@ st.markdown("### Tabla de Clasificación y Estadísticas")
 @st.cache_data(ttl=3600)  # Cache por 1 hora
 def load_and_update_data():
     """
-    Carga datos y actualiza automáticamente si es necesario.
+    Carga datos y, si faltan, los descarga automáticamente.
     Se cachea por 1 hora para no hacer requests constantes.
     """
-    # Intentar actualización automática (solo si pasaron >24h)
-    auto_update_if_needed(max_hours=24, verbose=False)
-    
-    # Cargar datos
     data_file = Path("la_liga_2026_2027_matches.json")
+
+    # Intentar actualización automática si existe el archivo pero necesita refresh
+    if data_file.exists():
+        auto_update_if_needed(max_hours=24, verbose=False)
+    else:
+        try:
+            download_all_matches(
+                output_file=str(data_file),
+                cache_dir="match_cache",
+                only_played=True,
+                incremental=False,
+            )
+        except Exception:
+            return None
+
     if not data_file.exists():
         return None
-    
+
     with open(data_file, 'r', encoding='utf-8') as f:
         return json.load(f)
 
